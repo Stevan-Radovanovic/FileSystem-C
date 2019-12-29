@@ -1,3 +1,7 @@
+/*
+	Azuriranje datoteke proizvoda
+*/
+
 #define _CRT_SECURE_NO_WARNINGS
 
 #include <stdio.h>
@@ -33,6 +37,12 @@ typedef struct promena {
 */
 FILE* datotekaProizvoda = NULL;
 FILE* datotekaPromena = NULL;
+FILE* greske = NULL;
+
+/*
+	GLobalni signal koji nam pokazuje da li su promene stanja azurirane
+*/
+int azuriranePromene = 0;
 
 /*
 	Radi preglednosti, sve funkcije ce biti deklarisane iznad main funkcije,
@@ -55,6 +65,9 @@ void dodajNovuPromenuStanja();
 void obrisiPostojeciProizvod();
 void obrisiPostojecuPromenuStanja();
 void azurirajDatotekuProizvoda();
+void azurirajDatotekuPromena();
+void pretraziDatotekuPromena();
+void pretraziDatotekuProizvoda();
 
 void main() {
 
@@ -202,12 +215,14 @@ void podmeniPrikazi() {
 
 	while (1 == 1) {
 
-		printf("********************************\n");
-		printf("*         Meni 'Prikazi'       *\n");
-		printf("* 1. Prikazi datoteku proizvoda*\n");
-		printf("* 2. Prikazi datoteku promena  *\n");
-		printf("* 3. Povratak u glavni meni    *\n");
-		printf("********************************\n");
+		printf("*********************************\n");
+		printf("*         Meni 'Prikazi'        *\n");
+		printf("* 1. Prikazi datoteku proizvoda *\n");
+		printf("* 2. Prikazi datoteku promena   *\n");
+		printf("* 3. Pretrazi datoteku proizvoda*\n");
+		printf("* 4. Pretrazi datoteku promena  *\n");
+		printf("* 5. Povratak u glavni meni     *\n");
+		printf("*********************************\n");
 		printf("Vas odabir? ");
 
 		scanf("%d", &odabir);
@@ -217,7 +232,11 @@ void podmeniPrikazi() {
 
 			case 2: prikaziDatotekuPromena(); break;
 
-			case 3: return;
+			case 3: pretraziDatotekuProizvoda(); break;
+
+			case 4: pretraziDatotekuPromena(); break;
+
+			case 5: return;
 
 			default: {
 				printf("Uneli ste nepostojecu vrednost, pokusajte ponovo.\n");
@@ -247,7 +266,8 @@ void podmeniAzuriraj() {
 		printf("* 3. Obrisi postojeci proizvod   *\n");
 		printf("* 4. Obrisi promenu stanja       *\n");
 		printf("* 5. Azuriraj datoteku proizvoda *\n");
-		printf("* 6. Povratak u glavni meni      *\n");
+		printf("* 6. Azuriraj datoteku promena   *\n");
+		printf("* 7. Povratak u glavni meni      *\n");
 		printf("**********************************\n");
 		printf("Vas odabir? ");
 
@@ -264,7 +284,9 @@ void podmeniAzuriraj() {
 
 		case 5: azurirajDatotekuProizvoda(); break;
 
-		case 6: return;
+		case 6: azurirajDatotekuPromena(); break;
+
+		case 7: return;
 
 		default: {
 			printf("Uneli ste nepostojecu vrednost, pokusajte ponovo.\n");
@@ -286,7 +308,7 @@ void kreirajDatotekuProizvoda() {
 		printf("Datoteka je vec kreirana ranije, ponovno kreiranje je nemoguce\n");
 		return;
 	}
-
+	
 	datotekaProizvoda = fopen("Proizvod.dat", "wb");
 	fclose(datotekaProizvoda);
 
@@ -324,8 +346,10 @@ void prikaziDatotekuProizvoda() {
 
 		printf("\nPrikaz proizvoda:\n");
 
+		datotekaProizvoda = fopen("Proizvod.dat","rb");
+
 		while (fread(&P, sizeof(proizvod),1,datotekaProizvoda) != 0) {
-			printf("%2d|%20s|%5lf|%4d\n" , P.sifra, P.naziv, P.cena, P.stanje); i++;
+			printf("%2d|%20s|%5.2lf|%4d\n" , P.sifra, P.naziv, P.cena, P.stanje); i++;
 		}
 
 		if (i == 0) printf("   Datoteka je prazna\n");
@@ -345,6 +369,8 @@ void prikaziDatotekuPromena() {
 			printf("Datoteka nije kreirana\n");
 			return;
 		}
+
+		datotekaPromena = fopen("Promena.dat", "rb");
 
 		printf("\nPrikaz promena:\n");
 
@@ -366,6 +392,17 @@ void obrisiDatotekuProizvoda() {
 		printf("Datoteka jos uvek nije kreirana\n");
 		return;
 	}
+
+	int odabir;
+	printf("Da li ste sigurni? 1 za DA, 2 za NE? ");
+	scanf("%d", &odabir);
+
+	switch (odabir) {
+	case 1: break;
+	case 2: printf("Brisanje ponisteno\n"); return;
+	default: printf("Uneli ste nepostojecu vrednost, brisanje ponisteno\n"); return;
+	}
+
 	datotekaProizvoda = fopen("Proizvod.dat", "wb");
 	datotekaProizvoda = NULL;
 
@@ -382,28 +419,403 @@ void obrisiDatotekuPromena() {
 		return;
 	}
 
+	int odabir;
+	printf("Da li ste sigurni? 1 za DA, 2 za NE? ");
+	scanf("%d", &odabir);
+
+	switch (odabir) {
+	case 1: break;
+	case 2: printf("Brisanje ponisteno\n"); return;
+	default: printf("Uneli ste nepostojecu vrednost, brisanje ponisteno\n"); return;
+	}
+
 	datotekaPromena = fopen("Promena.dat", "wb");
 	datotekaPromena = NULL;
 
 	printf("Datoteka promena je obrisana\n");
 }
 
+/*
+	Funkcija za dodavanje proizvoda u binarnu datoteku
+*/
 void dodajNoviProizvod() {
-	printf("Funkcija nije implementirana\n");
+
+	if (datotekaProizvoda == NULL) {
+		printf("Datoteka jos uvek nije kreirana\n");
+		return;
+	}
+
+	proizvod p;
+	datotekaProizvoda = fopen("Proizvod.dat", "a+b");
+
+	printf("Dodavanje novog proizvoda: \n");
+	printf("Unesite sifru: ");
+	scanf("%d", &p.sifra);
+	getchar();
+	printf("Unesite naziv: ");
+	gets(p.naziv);
+	printf("Unesite cenu: ");
+	scanf(" %lf", &p.cena);
+	getchar();
+	printf("Unesite stanje: ");
+	scanf("%d", &p.stanje);
+	getchar();
+
+	printf("\nProizvod je uspesno unet u datoteku!\n");
+
+	fwrite(&p, sizeof(proizvod), 1, datotekaProizvoda);
+	fclose(datotekaProizvoda);
 }
 
+/*
+	Funkcija za dodavanje promena u binarnu datoteku
+*/
 void dodajNovuPromenuStanja() {
-	printf("Funkcija nije implementirana\n");
+
+	if (datotekaPromena == NULL) {
+		printf("Datoteka jos uvek nije kreirana\n");
+		return;
+	}
+
+	promena p;
+	datotekaPromena = fopen("Promena.dat", "a+b");
+
+	printf("Dodavanje nove promene stanja: \n");
+	printf("Unesite sifru: ");
+	scanf("%d", &p.sifra);
+	getchar();
+	printf("Ukoliko dodajete kolicinu na stanje, ukucajte U. U suprotnom, ukucajte I: ");
+	scanf(" %c", &p.tip);
+	getchar();
+	printf("Unesite kolicinu: ");
+	scanf(" %d", &p.kolicina);
+	getchar();
+
+	printf("\Promena je uspesno uneta u datoteku!\n");
+
+	fwrite(&p, sizeof(promena), 1, datotekaPromena);
+	fclose(datotekaPromena);
+	azuriranePromene = 0;
 }
 
+/*
+	Funkcija za brisanje proizvoda iz binarne datoteke
+*/
 void obrisiPostojeciProizvod() {
-	printf("Funkcija nije implementirana\n");
+	
+	if (datotekaProizvoda == NULL) {
+		printf("Datoteka nije kreirana\n");
+		return;
+	}
+
+	FILE* privremenaDatoteka;
+	int nadjen = 0;
+	int sifraZaBrisanje;
+	char novoIme[] = "Proizvod.dat";
+	char staroIme[] = "Privremena.dat";
+	datotekaProizvoda = fopen("Proizvod.dat", "rb");
+	privremenaDatoteka = fopen("Privremena.dat", "wb");
+	proizvod p;
+
+	printf("Sifra proizvoda koji zelite da obrisete:\n");
+	scanf("%d", &sifraZaBrisanje);
+
+	while (fread(&p, sizeof(proizvod), 1, datotekaProizvoda))
+	{
+		if (sifraZaBrisanje!=p.sifra)
+		{
+			fwrite(&p, sizeof(proizvod), 1, privremenaDatoteka);
+
+		}
+		else {
+			nadjen = 1;
+			printf("Pronadjen je proizvod sa istom sifrom, i zatim je obrisan.\n");
+
+		}
+
+	}
+
+	if (nadjen==0) {
+		printf("Nije pronadjen proizvod sa istom sifrom.\n");
+
+	}
+
+	fclose(datotekaProizvoda);
+	fclose(privremenaDatoteka);
+	remove(novoIme);
+	rename(staroIme, novoIme);
+
 }
 
+/*
+	Funkcija za brisanje promene iz binarne datoteke
+*/
 void obrisiPostojecuPromenuStanja() {
-	printf("Funkcija nije implementirana\n");
+
+	if (datotekaPromena == NULL) {
+		printf("Datoteka nije kreirana\n");
+		return;
+	}
+
+	FILE* privremenaDatoteka;
+	int nadjen = 0;
+	int sifraZaBrisanje;
+	char novoIme[] = "Promena.dat";
+	char staroIme[] = "Privremena.dat";
+	datotekaPromena = fopen("Promena.dat", "rb");
+	privremenaDatoteka = fopen("Privremena.dat", "wb");
+	promena p;
+
+	printf("Sifra promene koju zelite da obrisete:\n");
+	scanf("%d", &sifraZaBrisanje);
+
+	while (fread(&p, sizeof(promena), 1, datotekaPromena))
+	{
+		if (sifraZaBrisanje != p.sifra)
+		{
+			fwrite(&p, sizeof(promena), 1, privremenaDatoteka);
+
+		}
+		else {
+			nadjen = 1;
+			printf("Pronadjena je promena sa istom sifrom, i zatim je obrisana.\n");
+		}
+
+	}
+
+	if (nadjen == 0) {
+		printf("Nije pronadjena promena sa istom sifrom.\n");
+
+	}
+
+	fclose(datotekaPromena);
+	fclose(privremenaDatoteka);
+	remove(novoIme);
+	rename(staroIme, novoIme);
+
 }
 
+/*
+	Funkcija za azuriranje proizvoda u binaranoj datoteci
+*/
 void azurirajDatotekuProizvoda() {
-	printf("Funkcija nije implementirana\n");
+	
+	int i = 0;
+	promena P;
+	proizvod pr;
+
+	char staroIme[] = "Privremena.dat";
+	char novoIme[] = "Proizvod.dat";
+
+	if (datotekaProizvoda == NULL) {
+		printf("Datoteka nije kreirana\n");
+		return;
+	}
+
+	if (azuriranePromene == 0) {
+		printf("Morate prvo azurirati datoteku promena\n");
+		return;
+	}
+
+	FILE* privremenaDatoteka = fopen(staroIme, "w+b");
+	datotekaProizvoda = fopen("Proizvod.dat", "r+b");
+	datotekaPromena= fopen("Promena.dat", "r+b");
+	greske = fopen("Greske.txt", "w+");
+
+	while (fread(&P, sizeof(promena), 1, datotekaPromena)) {
+
+		int uspesno = 0;
+
+		while (fread(&pr, sizeof(proizvod), 1, datotekaProizvoda)) {
+
+			if (pr.sifra == P.sifra) {
+				proizvod glavni;
+				glavni.sifra = pr.sifra;
+				glavni.stanje = pr.stanje;
+				glavni.cena = pr.cena;
+				strcpy(glavni.naziv, pr.naziv);
+
+				if (P.tip == 'u' || P.tip == 'U') {
+					glavni.stanje += P.kolicina;
+				}
+				else {
+					glavni.stanje -= P.kolicina;
+				}
+
+				if(glavni.stanje>=0) {
+					fwrite(&glavni, sizeof(proizvod), 1, privremenaDatoteka);
+					uspesno = 1;
+				}
+				else {
+					fwrite(&pr, sizeof(proizvod), 1, privremenaDatoteka);
+				}
+			}
+		}
+
+		if (uspesno == 0) {
+			fprintf(greske,"Doslo je do greske pri ubacivanju date promene: %2d|%2c|%2d\n",
+				P.sifra, P.tip, P.kolicina);
+		}
+
+
+		fseek(datotekaProizvoda, 0, SEEK_SET);
+	}
+
+	fclose(greske);
+	fclose(datotekaPromena);
+	fclose(datotekaProizvoda);
+	fclose(privremenaDatoteka);
+	remove(novoIme);
+	rename(staroIme, novoIme);
+	printf("Datoteka proizvoda je azurirana\n");
+	return;
+
+}
+
+/*
+	Funkcija za azuriranje promena u binaranoj datoteci
+*/
+void azurirajDatotekuPromena() {
+
+	int i = 0;
+	promena P;
+
+	char staroIme[] = "Privremena.dat";
+	char novoIme[] = "Promena.dat";
+
+	if (datotekaPromena == NULL) {
+		printf("Datoteka nije kreirana\n");
+		return;
+	}
+
+
+	FILE* privremenaDatoteka = fopen(staroIme, "w+b");
+	datotekaPromena = fopen("Promena.dat","rb");
+
+	int brojac = 1;
+	int nizGotovih[100]; int brN = 0;
+	int read;
+
+	while (1 == 1) {
+
+		fseek(datotekaPromena, 0, SEEK_SET);
+
+		for (int i = 1; i <= brojac; i++)
+			read = fread(&P, sizeof(promena), 1, datotekaPromena);
+
+		if (read == 0) {
+			fclose(datotekaPromena);
+			fclose(privremenaDatoteka);
+			remove(novoIme);
+			rename(staroIme, novoIme);
+			printf("Datoteka promena je azurirana\n");
+			azuriranePromene = 1;
+			return;			
+		}
+
+		brojac++;
+		int signal = 1;
+		for (int i = 0; i < brN; i++) {
+			if (P.sifra == nizGotovih[i]) signal = 0;
+		}
+
+		if (signal == 0) continue;
+
+		nizGotovih[brN++] = P.sifra;
+		promena glavna;
+		glavna.sifra = P.sifra;
+		glavna.kolicina = P.kolicina;
+		glavna.tip = P.tip;
+
+		if (glavna.tip == 'U' || glavna.tip == 'u') glavna.kolicina = P.kolicina;
+		else glavna.kolicina = -P.kolicina;
+
+
+		while (fread(&P, sizeof(promena), 1, datotekaPromena) != 0) {
+			if (glavna.sifra == P.sifra) {
+				if (P.tip == 'U' || P.tip == 'u') glavna.kolicina += P.kolicina;
+				else glavna.kolicina -= P.kolicina;
+			}
+		}
+
+		if (glavna.kolicina > 0) 
+					glavna.tip = 'u';
+		else {
+			glavna.tip = 'i';
+			glavna.kolicina = -glavna.kolicina;
+		}
+
+		fwrite(&glavna, sizeof(promena), 1, privremenaDatoteka);
+		
+	}
+
+
+
+}
+
+/*
+	Funkcija za pretrazivanje promena u binaranoj datoteci
+*/
+void pretraziDatotekuPromena() {
+
+	int i = 0;
+	promena P;
+	int unetaSifra;
+
+	if (datotekaPromena == NULL) {
+		printf("Datoteka nije kreirana\n");
+		return;
+	}
+
+	datotekaProizvoda = fopen("Promena.dat", "rb");
+
+	printf("Unesite sifru po kojoj pretrazujete: ");
+	scanf("%d", &unetaSifra);
+
+	printf("\nPromene sa datom sifrom:\n");
+
+	while (fread(&P, sizeof(promena), 1, datotekaPromena) != 0) {
+		if (P.sifra == unetaSifra)
+		{
+			printf("%2d|%2c|%3d\n", P.sifra, P.tip, P.kolicina); i++;
+		}
+	}
+
+	if (i == 0) printf("   Ne postoje promene sa datom sifrom\n");
+
+	fclose(datotekaPromena);
+}
+
+/*
+	Funkcija za pretrazivanje proizvoda u binaranoj datoteci
+*/
+void pretraziDatotekuProizvoda() {
+
+	int i = 0;
+	proizvod P;
+	int unetaSifra;
+
+	if (datotekaProizvoda == NULL) {
+		printf("Datoteka nije kreirana\n");
+		return;
+	}
+
+	printf("Unesite sifru po kojoj pretrazujete: ");
+	scanf("%d", &unetaSifra);
+
+	printf("\nProizvodi sa zadatom sifrom:\n");
+
+	datotekaProizvoda = fopen("Proizvod.dat", "rb");
+
+	while (fread(&P, sizeof(proizvod), 1, datotekaProizvoda) != 0) {
+		if (P.sifra == unetaSifra) 
+		{
+			printf("%2d|%20s|%5.2lf|%4d\n", P.sifra, P.naziv, P.cena, P.stanje); 
+			i++;
+		}
+	}
+
+	if (i == 0) printf("   Ne postoji proizvod sa zadatom sifrom\n");
+
+	fclose(datotekaProizvoda);
 }
